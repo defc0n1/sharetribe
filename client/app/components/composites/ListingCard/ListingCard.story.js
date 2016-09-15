@@ -1,5 +1,10 @@
 import r, { div, h1, h2, p } from 'r-dom';
 import { storiesOf } from '@kadira/storybook';
+
+import { specs, describe, it } from 'storybook-addon-specifications';
+import { mount } from 'enzyme';
+import { expect } from 'chai';
+
 import { storify } from '../../Styleguide/withProps';
 
 import ListingCard from './ListingCard';
@@ -159,25 +164,40 @@ storiesOf('Search results')
         containerStyle
       ))
   ))
-  .add('ListingCard - image fail', () => (
-      r(storify(
-        r(ListingCard, Object.assign({},
-          {
-            id: 'lkjg84573874yjdf',
-            title: 'Picture load fails',
-            listingURL: 'http://marketplace.com/listing/342iu4',
-            imageURL: 'http://failingimage.com/image.png',
-            noImageText: 'No picture',
-            avatarURL: 'http://placehold.it/40x40',
-            profileURL: '#profile1',
-            price: 199,
-            priceUnit: '€',
-            distance: 9,
-            distanceUnit: 'km',
-            color: '#347F9D',
-            className: css.listing,
-          },
-        )),
-        containerStyle
-      ))
-  ));
+  .add('ListingCard - image fail', () => {
+    const story = r(storify(
+      r(ListingCard, Object.assign({},
+        {
+          id: 'lkjg84573874yjdf',
+          title: 'Picture load fails',
+          listingURL: 'http://marketplace.com/listing/342iu4',
+          imageURL: 'http://failingimage.com/image.png',
+          noImageText: 'No picture',
+          avatarURL: 'http://placehold.it/40x40',
+          profileURL: '#profile1',
+          price: 199,
+          priceUnit: '€',
+          distance: 9,
+          distanceUnit: 'km',
+          color: '#347F9D',
+          className: css.listing,
+        },
+      )),
+      containerStyle
+    ));
+
+    specs(() => describe('Failing image', () => {
+      const output = mount(story);
+      it('Should display "No picture"', () => {
+        expect(output.text()).to.include('No picture');
+      });
+      it('Should display formatted price', () => {
+        expect(output.text()).to.include('€ 199');
+      });
+      it('Should display formatted distance', () => {
+        expect(output.text()).to.include('9 km');
+      });
+    }));
+
+    return story;
+  });
