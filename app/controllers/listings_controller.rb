@@ -262,6 +262,13 @@ class ListingsController < ApplicationController
 
     shape = get_shape(Maybe(params)[:listing][:listing_shape_id].to_i.or_else(nil))
 
+    listing_uuid = UUIDTools::UUID.timestamp_create
+    author_uuid = UUIDTools::UUID.parse_raw(Base64.urlsafe_decode64(@current_user.id))
+
+    if FeatureFlagHelper.feature_enabled?(:availability) && shape.present? && shape[:availability] != :booking
+      create_bookable(listing_uuid, author_uuid)
+    end
+
     listing_params = ListingFormViewUtils.filter(params[:listing], shape)
     listing_unit = Maybe(params)[:listing][:unit].map { |u| ListingViewUtils::Unit.deserialize(u) }.or_else(nil)
     listing_params = ListingFormViewUtils.filter_additional_shipping(listing_params, listing_unit)
@@ -276,6 +283,7 @@ class ListingsController < ApplicationController
     m_unit = select_unit(listing_unit, shape)
 
     listing_params = create_listing_params(listing_params).merge(
+        uuid: listing_uuid.raw,
         community_id: @current_community.id,
         listing_shape_id: shape[:id],
         transaction_process_id: shape[:transaction_process_id],
@@ -483,6 +491,19 @@ class ListingsController < ApplicationController
   end
 
   private
+
+  def create_bookable(listing_uuid, author_uuid)
+    res = HarmonyService::API::Api.post(:create_bookable,
+                                        body: {
+                                          marketplaceId: @current_community.uuid,
+                                          refId: listing_uuid,
+                                          authorId: author_uuid
+                                        })
+    if res.nil? || !res[:success]
+      # TODO: proper error handling
+      raise StandarError.new("Error in Harmony API")
+    end
+  end
 
   def select_shape(shapes, id)
     if shapes.size == 1
