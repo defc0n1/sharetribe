@@ -265,8 +265,13 @@ class ListingsController < ApplicationController
     listing_uuid = UUIDTools::UUID.timestamp_create
     author_uuid = UUIDTools::UUID.parse_raw(Base64.urlsafe_decode64(@current_user.id))
 
-    if FeatureFlagHelper.feature_enabled?(:availability) && shape.present? && shape[:availability] != :booking
-      create_bookable(listing_uuid, author_uuid)
+    if FeatureFlagHelper.feature_enabled?(:availability) && shape.present? && shape[:availability] == :booking
+      bookable_res = create_bookable(listing_uuid, author_uuid)
+      unless bookable_res.success
+        # TODO: error message, i18n
+        flash[:error] = bookable_res[:error_msg]
+        return redirect_to new_listing_path
+      end
     end
 
     listing_params = ListingFormViewUtils.filter(params[:listing], shape)
@@ -499,10 +504,9 @@ class ListingsController < ApplicationController
                                           refId: listing_uuid,
                                           authorId: author_uuid
                                         })
-    if res.nil? || !res[:success]
-      # TODO: proper error handling
-      raise StandarError.new("Error in Harmony API")
-    end
+    # TODO: inspect possible error, make "booking for refId exists
+    # already" into a Result::Success
+    res
   end
 
   def select_shape(shapes, id)
